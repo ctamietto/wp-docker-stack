@@ -1,0 +1,139 @@
+version: "3.6"
+
+services:
+  app:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-app"
+    image: "fra.ocir.io/frzl1pgjq2ru/sugarcrm:${APP_VERSION:-10.0.1}"
+    depends_on:
+      - db
+      - search
+      - redis
+    environment:
+      - TIMEZONE=Europe/Rome
+      - DEBUG_ENTRYPOINT=2
+      - DOCKER_LOGS=1
+      - NEW_UID=${NEW_UID:-0}
+      - NEW_GID=${NEW_GID:-0}
+      - CONTAINER_ROLE=app
+      - NLS_LANG=${NLS_LANG:-AMERICAN_AMERICA.WE8MSWIN1252}
+      - FIX_PERMISSIONS=1
+    links:
+      - "db:db"
+      - "search:search"
+      - "redis:redis"
+    networks:
+      sugar-net:
+    restart: unless-stopped
+    working_dir: /var/www/default/htdocs
+    volumes:
+      - "sugar-app-data:/var/www/default/htdocs"
+      - "sugar-oci-conf:/usr/lib/network/admin"
+      - "sugar-php-conf:/usr/local/etc/php"
+
+  scheduler:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-scheduler"
+    image: "fra.ocir.io/frzl1pgjq2ru/sugarcrm:${APP_VERSION:-10.0.1}"
+    depends_on:
+      - app
+      - db
+      - search
+      - redis
+    environment:
+      - TIMEZONE=Europe/Rome
+      - DEBUG_ENTRYPOINT=2
+      - DOCKER_LOGS=1
+      - NEW_UID=${NEW_UID:-0}
+      - NEW_GID=${NEW_GID:-0}
+      - CONTAINER_ROLE=scheduler
+      - NLS_LANG=${NLS_LANG:-AMERICAN_AMERICA.WE8MSWIN1252}
+    links:
+      - "db:db"
+      - "search:search"
+      - "redis:redis"
+    networks:
+      sugar-net:
+    restart: unless-stopped
+    working_dir: /var/www/default/htdocs
+    volumes:
+      - "sugar-app-data:/var/www/default/htdocs"
+      - "sugar-oci-conf:/usr/lib/network/admin"
+  httpd:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-webserver"
+    image: "devilbox/apache-2.4"
+    depends_on:
+      - db
+      - app
+    environment:
+      - TIMEZONE=Europe/Rome
+      - DEBUG_ENTRYPOINT=2
+      - DEBUG_RUNTIME=1
+      - DOCKER_LOGS=1
+      - NEW_UID=${NEW_UID:-0}
+      - NEW_GID=${NEW_GID:-0}
+      - PHP_FPM_ENABLE=1
+      - PHP_FPM_SERVER_ADDR=app
+      - PHP_FPM_SERVER_PORT=9000
+      - MAIN_VHOST_STATUS_ENABLE=1
+    links:
+      - "db:db"
+      - "app:app"
+    networks:
+      sugar-net:
+    ports:
+      - "${HTTP:-80}:80"
+    restart: unless-stopped
+    volumes:
+      - "sugar-app-data:/var/www/default/htdocs"
+
+  search:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-elasticsearch"
+    image: "${ES_IMAGE:-docker.elastic.co/elasticsearch/elasticsearch-oss}:${ES_VERSION:-6.8.10}"
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      sugar-net:
+    restart: unless-stopped
+
+  sftp:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-sftp"
+    image: "atmoz/sftp:alpine"
+    command: "poker:rekop:${NEW_UID:-0}"
+    networks:
+      sugar-net:
+    ports:
+      - "${SFTP_PORT:-7222}:22"
+    restart: unless-stopped
+    volumes:
+      - "sugar-app-data:/home/poker/app"
+      - "sugar-oci-conf:/home/poker/oci"
+
+  redis:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-redis"
+    image: "redis:6-alpine"
+    networks:
+      sugar-net:
+    restart: unless-stopped
+
+  vscode:
+    container_name: "${APP_NAME:-sugarcrm}-${CLIENT:-full}-${ENV:-dev}-vscode"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    image: "linuxserver/code-server"
+    networks:
+      sugar-net:
+    ports:
+      - "9003:9003"
+      - "8443:8443"
+    restart: unless-stopped
+    volumes:
+      - "sugar-app-data:/sugarcrm"
+
+

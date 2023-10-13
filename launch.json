@@ -10,7 +10,7 @@
             "request": "launch",
             "port": 9003,
             "pathMappings": {
-                "/var/www/default/htdocs" : "${workspaceFolder}"
+                "/opt/bitnami/wordpress" : "${workspaceFolder}"
             },
             "stopOnEntry": false
         },
